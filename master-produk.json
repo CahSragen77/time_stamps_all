@@ -1,0 +1,20 @@
+[
+    {
+        "barcode": "8998866200011",
+        "nama": "Indomie Goreng 85g",
+        "jenis": "Grocery",
+        "kategoriDefault": "Kemasan Penyok"
+    },
+    {
+        "barcode": "8991002100115",
+        "nama": "Apel Fuji Premium",
+        "jenis": "Fresh",
+        "kategoriDefault": "Rusak Fisik"
+    },
+    {
+        "barcode": "8992761133015",
+        "nama": "Susu Ultra 1L",
+        "jenis": "Grocery",
+        "kategoriDefault": "Expired"
+    }
+]
