@@ -712,19 +712,7 @@ async function uploadToGoogleDrive(dataBS) {
 // ==========================================
 let masterProduk = [];
 let html5QrCode = null;
-
-// Muat master data saat halaman dibuka
-async function muatMasterData() {
-    try {
-        const response = await fetch('master-produk.json');
-        masterProduk = await response.json();
-        console.log('✅ Master data dimuat:', masterProduk.length, 'produk');
-    } catch (err) {
-        console.warn('⚠️ Master data belum tersedia. Buat file master-produk.json dulu.');
-        masterProduk = [];
-    }
-}
-muatMasterData();
+let jenisMapping = JSON.parse(localStorage.getItem('jenisMapping') || '{}');
 
 // Buka scanner
 function bukaScanner() {
