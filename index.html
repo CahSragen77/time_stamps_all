@@ -139,11 +139,10 @@
 <div class="card">
     <h3>📝 Data Broken Stock</h3>
 
-        <!-- TOMBOL SCAN BARCODE -->
-    <div class="form-group">
-        <button type="button" class="btn blue" onclick="bukaScanner()" style="width:100%;">
-            📷 Scan Barcode Produk
-        </button>
+        <!-- TOMBOL AKSI UTAMA (Scan Barcode & Ambil/Simpan Berdampingan) -->
+    <div class="action-main-row">
+        <button type="button" class="btn blue" onclick="bukaScanner()">📷 Scan Barcode</button>
+        <button type="button" class="btn green" onclick="simpanBS()">📷 Ambil & Simpan</button>
     </div>
 
     <!-- AREA SCANNER (muncul saat tombol diklik) -->
@@ -206,7 +205,6 @@
 
     <!-- TOMBOL AKSI -->
     <div class="btn-row">
-        <button class="btn green" onclick="simpanBS()">📷 Ambil & Simpan</button>
         <button class="btn blue" onclick="exportPDF()">📄 Cetak PDF</button>
         <button class="btn blue" onclick="exportExcel()">📊 Ekspor Excel</button>
         <button class="btn gray" onclick="hapusSemua()">🗑️ Hapus Semua</button>
