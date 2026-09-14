@@ -154,9 +154,10 @@
         </button>
     </div>
 
-    <div class="form-group">
+        <div class="form-group" style="position:relative;">
         <label>Nama Produk *</label>
-        <input type="text" id="namaProduk" placeholder="cth: Apel Fuji / Indomie Goreng">
+        <input type="text" id="namaProduk" placeholder="Ketik nama produk atau barcode..." autocomplete="off">
+        <div id="suggestBox" style="display:none; position:absolute; top:100%; left:0; right:0; background:#0f3460; border:1px solid #e94560; border-radius:6px; max-height:250px; overflow-y:auto; z-index:100;"></div>
     </div>
 
     <div class="row">
@@ -760,34 +761,25 @@ function tutupScanner() {
 function onScanSuccess(decodedText) {
     console.log('🔍 Barcode terbaca:', decodedText);
     
-    // Cari di master data
     const produk = masterProduk.find(p => p.barcode === decodedText);
     
     if (produk) {
-        // Isi otomatis form
-        document.getElementById('namaProduk').value = produk.nama;
-        document.getElementById('jenisBarang').value = produk.jenis;
+        inputNama.value = produk.descp;
+        inputNama.dataset.barcode = produk.barcode;
+        inputNama.dataset.plu = produk.plu;
         
-        // Panggil logika otomatis (Fresh/Grocery)
-        aturKolomSesuaiJenis();
-        
-        // Isi kategori default (opsional, tetap bisa diganti user)
-        if (produk.kategoriDefault) {
-            document.getElementById('kategori').value = produk.kategoriDefault;
+        // Auto-learning: kalau pernah di-input
+        if (jenisMapping[produk.plu]) {
+            document.getElementById('jenisBarang').value = jenisMapping[produk.plu];
+            aturKolomSesuaiJenis();
         }
         
-        // Getar + suara feedback (kalau didukung HP)
         if (navigator.vibrate) navigator.vibrate(150);
-        
-        alert('✅ Produk ditemukan:\n' + produk.nama);
+        alert('✅ Produk ditemukan:\n' + produk.descp);
     } else {
-        // Barcode tidak ada di master
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-        alert('⚠️ Barcode tidak terdaftar di master data.\n\nKode: ' + decodedText + 
-              '\n\nSilakan isi nama produk manual, atau tambahkan ke master data.');
+        alert('⚠️ Barcode tidak terdaftar.\n\nKode: ' + decodedText);
     }
-    
-    // Tutup scanner otomatis setelah baca
     tutupScanner();
 }
 
@@ -804,6 +796,94 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden && kameraAktif) {
         console.log('📱 Tab tidak aktif, matikan kamera...');
         matikanKamera();
+    }
+});
+
+// ==========================================
+// AUTOCOMPLETE NAMA PRODUK (dari master JSON)
+// ==========================================
+let jenisMapping = JSON.parse(localStorage.getItem('jenisMapping') || '{}');
+
+// Muat master data (gabung dengan fungsi muatMasterData yang sudah ada)
+async function muatMasterDataLengkap() {
+    try {
+        const response = await fetch('master-produk.json');
+        const rawData = await response.json();
+        
+        // Ratakan semua chunk jadi 1 array
+        masterProduk = [];
+        for (const key in rawData) {
+            if (Array.isArray(rawData[key])) {
+                masterProduk = masterProduk.concat(rawData[key]);
+            }
+        }
+        
+        console.log('✅ Master data dimuat:', masterProduk.length, 'produk');
+    } catch (err) {
+        console.warn('⚠️ Master data belum tersedia:', err);
+        masterProduk = [];
+    }
+}
+muatMasterDataLengkap();
+
+// Setup autocomplete
+const inputNama = document.getElementById('namaProduk');
+const suggestBox = document.getElementById('suggestBox');
+
+inputNama.addEventListener('input', function() {
+    const query = this.value.trim().toLowerCase();
+    if (query.length < 2) { suggestBox.style.display = 'none'; return; }
+    
+    const matches = masterProduk.filter(p => 
+        (p.descp && p.descp.toLowerCase().includes(query)) ||
+        (p.barcode && p.barcode.includes(query)) ||
+        (p.plu && p.plu.includes(query))
+    ).slice(0, 10);
+    
+    if (matches.length === 0) { suggestBox.style.display = 'none'; return; }
+    
+    suggestBox.innerHTML = '';
+    matches.forEach(p => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:10px; border-bottom:1px solid #1a4d8f; cursor:pointer; font-size:13px;';
+        div.innerHTML = `<b>${p.descp}</b><br>
+            <span style="font-size:11px; color:#aaa;">PLU: ${p.plu} | ${p.barcode || 'tanpa barcode'}</span>`;
+        div.onmouseover = () => div.style.background = '#1a4d8f';
+        div.onmouseout = () => div.style.background = '';
+        div.onclick = () => pilihProduk(p);
+        suggestBox.appendChild(div);
+    });
+    suggestBox.style.display = 'block';
+});
+
+// Hide saat klik di luar
+document.addEventListener('click', (e) => {
+    if (!inputNama.contains(e.target) && !suggestBox.contains(e.target)) {
+        suggestBox.style.display = 'none';
+    }
+});
+
+// Pilih produk dari dropdown
+function pilihProduk(p) {
+    inputNama.value = p.descp;
+    inputNama.dataset.barcode = p.barcode || '';
+    inputNama.dataset.plu = p.plu || '';
+    suggestBox.style.display = 'none';
+    
+    // Auto-isi jenis kalau pernah di-input sebelumnya
+    if (jenisMapping[p.plu]) {
+        document.getElementById('jenisBarang').value = jenisMapping[p.plu];
+        aturKolomSesuaiJenis();
+        console.log('🎓 Auto-learning: jenis =', jenisMapping[p.plu]);
+    }
+}
+
+// Simpan jenis ke memory saat user ubah
+document.getElementById('jenisBarang').addEventListener('change', function() {
+    const plu = inputNama.dataset.plu;
+    if (plu && this.value) {
+        jenisMapping[plu] = this.value;
+        localStorage.setItem('jenisMapping', JSON.stringify(jenisMapping));
     }
 });
 </script>
