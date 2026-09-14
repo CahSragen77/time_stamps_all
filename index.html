@@ -186,15 +186,15 @@
     <div class="row">
         <div class="form-group">
             <label>Berat (gram)</label>
-            <input type="number" id="berat" step="1" placeholder="cth: 500">
+            <input type="number" id="berat" step="1" min="0" placeholder="cth: 500">
         </div>
         <div class="form-group">
             <label>Qty PCS</label>
-            <input type="number" id="qtyPcs" placeholder="0">
+            <input type="number" id="qtyPcs" min="0" placeholder="0">
         </div>
         <div class="form-group">
             <label>Qty PACK</label>
-            <input type="number" id="qtyPack" placeholder="0">
+            <input type="number" id="qtyPack" min="0" placeholder="0">
         </div>
     </div>
 
@@ -362,7 +362,11 @@ function simpanBS() {
         }
     }
 
-    // Ambil gambar dari kamera
+    // Ambil gambar dari kamera (pastikan video sudah benar-benar siap)
+    if (!video.videoWidth || !video.videoHeight) {
+        alert('⏳ Kamera masih menyiapkan gambar, tunggu sebentar lalu coba lagi.');
+        return;
+    }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
@@ -416,9 +420,9 @@ function simpanBS() {
         nama: nama,
         jenis: jenis,
         kategori: kategori,
-        berat: berat || '-',
-        qtyPcs: qtyPcs || '-',
-        qtyPack: qtyPack || '-',
+        berat: berat ? Number(berat) : '-',
+        qtyPcs: qtyPcs ? Number(qtyPcs) : '-',
+        qtyPack: qtyPack ? Number(qtyPack) : '-',
         catatan: catatan || '-',
         tanggal: tglStr,
         jam: jamStr,
@@ -485,7 +489,7 @@ function tampilkanHistory() {
                 <b>${item.nama}</b> (${item.jenis} - ${item.kategori})<br>
                 Berat: ${item.berat} gr | PCS: ${item.qtyPcs} | Pack: ${item.qtyPack}<br>
                 ${item.jam} - ${item.tanggal}<br>
-                <span style="color:#4ecca3;font-size:11px;">📍 ${item.alamat.substring(0,50)}...</span>
+                <span style="color:#4ecca3;font-size:11px;">📍 ${item.alamat.substring(0,50)}${item.alamat.length > 50 ? '...' : ''}</span>
             </div>
             <button class="del" onclick="hapusItem(${item.id})">Hapus</button>
         `;
@@ -666,6 +670,7 @@ function aturKolomSesuaiJenis() {
 
 // Pasang listener ke dropdown jenis barang
 document.getElementById('jenisBarang').addEventListener('change', aturKolomSesuaiJenis);
+aturKolomSesuaiJenis(); // sinkronkan state kolom saat halaman pertama dibuka
 
 // ==========================================
 // KONFIGURASI - GANTI DENGAN URL APPS SCRIPT ANDA
@@ -789,9 +794,15 @@ function onScanError(errorMessage) {
 // AUTO-OFF KAMERA SAAT TAB TIDAK AKTIF
 // ==========================================
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden && kameraAktif) {
-        console.log('📱 Tab tidak aktif, matikan kamera...');
-        matikanKamera();
+    if (document.hidden) {
+        if (kameraAktif) {
+            console.log('📱 Tab tidak aktif, matikan kamera...');
+            matikanKamera();
+        }
+        if (html5QrCode) {
+            console.log('📱 Tab tidak aktif, tutup scanner barcode...');
+            tutupScanner();
+        }
     }
 });
 
@@ -806,11 +817,17 @@ async function muatMasterDataLengkap() {
         const response = await fetch('master-produk.json');
         const rawData = await response.json();
         
-        // Ratakan semua chunk jadi 1 array
-        masterProduk = [];
-        for (const key in rawData) {
-            if (Array.isArray(rawData[key])) {
-                masterProduk = masterProduk.concat(rawData[key]);
+        // Dukung 2 format:
+        // 1) Array polos di level atas -> [ {...}, {...} ]
+        // 2) Object berisi beberapa array (chunk) -> { "chunk1": [...], "chunk2": [...] }
+        if (Array.isArray(rawData)) {
+            masterProduk = rawData;
+        } else {
+            masterProduk = [];
+            for (const key in rawData) {
+                if (Array.isArray(rawData[key])) {
+                    masterProduk = masterProduk.concat(rawData[key]);
+                }
             }
         }
         
@@ -818,6 +835,9 @@ async function muatMasterDataLengkap() {
     } catch (err) {
         console.warn('⚠️ Master data belum tersedia:', err);
         masterProduk = [];
+        // Kasih tahu user di UI, bukan cuma di console — sering kejadian karena
+        // file HTML dibuka langsung dari File Explorer, bukan lewat server/hosting.
+        inputNama.placeholder = '⚠️ Master produk gagal dimuat (buka lewat server, bukan file lokal)';
     }
 }
 muatMasterDataLengkap();
