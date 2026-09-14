@@ -230,6 +230,8 @@ const video = document.getElementById('camera');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let currentLat = '-', currentLon = '-', currentAddr = 'Lokasi belum tersedia';
+const inputNama = document.getElementById('namaProduk');
+const suggestBox = document.getElementById('suggestBox');
 
 // ========== 1. AKSES KAMERA (dengan kontrol ON/OFF) ==========
 let cameraStream = null;
@@ -846,8 +848,6 @@ async function muatMasterDataLengkap() {
 muatMasterDataLengkap();
 
 // Setup autocomplete
-const inputNama = document.getElementById('namaProduk');
-const suggestBox = document.getElementById('suggestBox');
 
 inputNama.addEventListener('input', function() {
     const query = this.value.trim().toLowerCase();
