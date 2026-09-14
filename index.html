@@ -293,31 +293,62 @@ function updateJam() {
 setInterval(updateJam, 1000);
 updateJam();
 
-// ========== 3. AMBIL LOKASI (GPS) ==========
+// ========== 3. AMBIL LOKASI (GPS) - Versi Hemat Request ==========
+let lastGeocodeTime = 0;
+let lastGeocodeLat = 0;
+let lastGeocodeLon = 0;
+const GEOCODE_INTERVAL = 60000; // Minimal 1 menit antar request
+const GEOCODE_MIN_DISTANCE = 0.0005; // Minimal ~50 meter perubahan
+
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(
         pos => {
             currentLat = pos.coords.latitude.toFixed(6);
             currentLon = pos.coords.longitude.toFixed(6);
-            document.getElementById('overlayLoc').textContent = 
-                '📍 ' + currentLat + ', ' + currentLon + ' (mencari alamat...)';
             
-            // Reverse geocoding ke alamat
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLat}&lon=${currentLon}`)
-                .then(res => res.json())
+            // Tampilkan koordinat dulu (langsung)
+            document.getElementById('overlayLoc').textContent = 
+                '📍 ' + currentLat + ', ' + currentLon;
+            
+            // Cek apakah perlu geocode (reverse address)
+            const now = Date.now();
+            const latNum = parseFloat(currentLat);
+            const lonNum = parseFloat(currentLon);
+            const distFromLast = Math.abs(latNum - lastGeocodeLat) + Math.abs(lonNum - lastGeocodeLon);
+            
+            const timeElapsed = now - lastGeocodeTime > GEOCODE_INTERVAL;
+            const distanceChanged = distFromLast > GEOCODE_MIN_DISTANCE;
+            
+            // Hanya geocode kalau: (waktu > 1 menit DAN lokasi berubah) ATAU alamat belum ada
+            if ((timeElapsed && distanceChanged) || currentAddr === 'Lokasi belum tersedia') {
+                lastGeocodeTime = now;
+                lastGeocodeLat = latNum;
+                lastGeocodeLon = lonNum;
+                
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latNum}&lon=${lonNum}`, {
+                    headers: { 'User-Agent': 'BS-Timestamp-App/1.0' }
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Rate limited');
+                    return res.json();
+                })
                 .then(data => {
-                    currentAddr = data.display_name || 'Alamat tidak diketahui';
+                    currentAddr = data.display_name || (currentLat + ', ' + currentLon);
                     document.getElementById('overlayLoc').textContent = 
                         '📍 ' + currentAddr.substring(0, 60) + (currentAddr.length > 60 ? '...' : '');
                 })
                 .catch(() => {
-                    currentAddr = currentLat + ', ' + currentLon;
+                    // Kalau gagal, pakai koordinat saja
+                    if (currentAddr === 'Lokasi belum tersedia') {
+                        currentAddr = currentLat + ', ' + currentLon;
+                    }
                 });
+            }
         },
         err => {
             document.getElementById('overlayLoc').textContent = '📍 Lokasi tidak tersedia';
         },
-        { enableHighAccuracy: true, maximumAge: 5000 }
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 }
     );
 }
 
@@ -790,6 +821,7 @@ document.addEventListener('visibilitychange', () => {
 // ==========================================
 // AUTOCOMPLETE NAMA PRODUK (dari master JSON)
 // ==========================================
+
 
 // Muat master data (gabung dengan fungsi muatMasterData yang sudah ada)
 async function muatMasterDataLengkap() {
